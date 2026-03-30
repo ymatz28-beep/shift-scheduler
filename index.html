@@ -845,7 +845,17 @@
     </style>
 </head>
 <body>
-    <div class="app-container">
+    <!-- Password Gate -->
+    <div id="authGate" style="position:fixed;inset:0;background:var(--bg);z-index:99999;display:flex;align-items:center;justify-content:center;">
+        <div style="text-align:center;max-width:320px;width:90%;">
+            <div style="font-family:var(--font-mono);font-size:1.2rem;color:var(--accent);margin-bottom:0.5rem;">Shift Scheduler</div>
+            <div style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-bottom:1.5rem;">Enter password to continue</div>
+            <input type="password" id="gatePassword" placeholder="Password" style="font-family:var(--font-mono);background:var(--surface);border:1px solid var(--border);color:var(--text);padding:0.6rem 1rem;border-radius:999px;width:100%;font-size:0.8rem;text-align:center;outline:none;" autofocus>
+            <div id="gateError" style="font-family:var(--font-mono);font-size:0.65rem;color:#ef4444;margin-top:0.5rem;display:none;">Incorrect password</div>
+        </div>
+    </div>
+
+    <div class="app-container" style="display:none;" id="appMain">
         <div class="header">
             <h1>Shift Scheduler</h1>
             <div class="header-controls">
@@ -1043,6 +1053,32 @@
 
 
     <script>
+        // ============ Password Gate ============
+        const GATE_HASH = '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8'; // sha256 of password
+        async function sha256(text) {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+        (function() {
+            if (sessionStorage.getItem('ss_auth') === 'ok') {
+                document.getElementById('authGate').style.display = 'none';
+                document.getElementById('appMain').style.display = 'flex';
+            }
+            document.getElementById('gatePassword').addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter') {
+                    const hash = await sha256(e.target.value);
+                    if (hash === GATE_HASH) {
+                        sessionStorage.setItem('ss_auth', 'ok');
+                        document.getElementById('authGate').style.display = 'none';
+                        document.getElementById('appMain').style.display = 'flex';
+                    } else {
+                        document.getElementById('gateError').style.display = 'block';
+                        e.target.value = '';
+                    }
+                }
+            });
+        })();
+
         // ============ Config & Constants ============
         const DEFAULT_TEAM_MEMBERS = ['Seiryu', 'Masato', 'Yukio', 'Masayuki', 'Kosuke', 'Yancy'];
         let teamMembers = [...DEFAULT_TEAM_MEMBERS];
