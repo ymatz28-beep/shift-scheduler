@@ -92,24 +92,6 @@
             color: var(--accent);
         }
 
-        .lang-toggle {
-            font-family: var(--font-mono);
-            background-color: transparent;
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 0.3rem 0.7rem;
-            border-radius: 999px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 400;
-            transition: all 0.2s ease;
-        }
-
-        .lang-toggle:hover {
-            border-color: var(--accent);
-            color: var(--text);
-        }
-
         /* Tabs */
         .tab-container {
             display: flex;
@@ -868,59 +850,43 @@
             <h1>Shift Scheduler</h1>
             <div class="header-controls">
                 <div class="sync-pill" id="syncPill">Saved</div>
-                <button class="lang-toggle" id="langToggle">EN / JP</button>
             </div>
         </div>
 
         <div style="padding:0.5rem 1.25rem;font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);line-height:1.6;border-bottom:1px solid var(--border);">
-            All data stays in your browser (localStorage). No backend, no database, no cookies. Nothing leaves your device — the only outbound requests are WebEx messages you send via Auto-Send. Verify in DevTools → Network. <a href="https://github.com/ymatz28-beep/shift-scheduler" style="color:var(--accent);text-decoration:none;">Source on GitHub</a>
+            全データはブラウザ内（localStorage）に保存。サーバー送信なし、バックエンドなし、Cookie なし。Auto-Send で送る WebEx メッセージ以外、外部通信は一切ありません。DevTools → Network で確認できます。<a href="https://github.com/ymatz28-beep/shift-scheduler" style="color:var(--accent);text-decoration:none;">ソースコード（GitHub）</a>
         </div>
 
         <div class="tab-container">
-            <button class="tab-button active" data-tab="availability">
-                <span class="ja">シフト入力</span>
-                <span class="en" style="display: none;">Availability</span>
-            </button>
-            <button class="tab-button" data-tab="schedule">
-                <span class="ja">スケジュール</span>
-                <span class="en" style="display: none;">Schedule</span>
-            </button>
-            <button class="tab-button" data-tab="team">
-                <span class="ja">チーム</span>
-                <span class="en" style="display: none;">Team</span>
-            </button>
-            <button class="tab-button" data-tab="autosend">
-                <span class="ja">自動送信</span>
-                <span class="en" style="display: none;">Auto-Send</span>
-            </button>
+            <button class="tab-button active" data-tab="availability">Availability</button>
+            <button class="tab-button" data-tab="schedule">Schedule</button>
+            <button class="tab-button" data-tab="team">Team</button>
+            <button class="tab-button" data-tab="autosend">Auto-Send</button>
         </div>
 
         <div class="content-area">
             <!-- Availability Tab -->
             <div id="availability" class="tab-content active">
                 <div class="card">
-                    <h2>
-                        <span class="ja">週間シフト管理</span>
-                        <span class="en" style="display: none;">Weekly Shift Management</span>
-                    </h2>
+                    <h2>Weekly Shift Management</h2>
 
                     <div class="week-nav">
-                        <button id="prevWeekBtn">← <span class="ja">前週</span><span class="en" style="display: none;">Prev</span></button>
+                        <button id="prevWeekBtn">← Prev</button>
                         <div class="week-display" id="weekDisplay"></div>
-                        <button id="nextWeekBtn"><span class="ja">次週</span><span class="en" style="display: none;">Next</span> →</button>
-                        <button id="todayBtn"><span class="ja">今週</span><span class="en" style="display: none;">Today</span></button>
+                        <button id="nextWeekBtn">Next →</button>
+                        <button id="todayBtn">Today</button>
                     </div>
 
                     <div class="availability-grid">
                         <table class="grid-table" id="availabilityGrid">
                             <thead>
                                 <tr>
-                                    <th><span class="ja">メンバー</span><span class="en" style="display: none;">Member</span></th>
-                                    <th><span class="ja">月</span><span class="en" style="display: none;">Mon</span></th>
-                                    <th><span class="ja">火</span><span class="en" style="display: none;">Tue</span></th>
-                                    <th><span class="ja">水</span><span class="en" style="display: none;">Wed</span></th>
-                                    <th><span class="ja">木</span><span class="en" style="display: none;">Thu</span></th>
-                                    <th><span class="ja">金</span><span class="en" style="display: none;">Fri</span></th>
+                                    <th>Member</th>
+                                    <th>Mon</th>
+                                    <th>Tue</th>
+                                    <th>Wed</th>
+                                    <th>Thu</th>
+                                    <th>Fri</th>
                                 </tr>
                             </thead>
                             <tbody id="availabilityBody"></tbody>
@@ -930,39 +896,39 @@
                     <div class="legend">
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #22c55e;"></div>
-                            <span><span class="ja">出勤可</span><span class="en" style="display: none;">Available</span></span>
+                            <span>Available</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #eab308;"></div>
-                            <span><span class="ja">遅番可</span><span class="en" style="display: none;">Late Shift</span></span>
+                            <span>Late Shift</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #a78bfa;"></div>
-                            <span><span class="ja">休暇</span><span class="en" style="display: none;">PTO</span></span>
+                            <span>PTO</span>
                         </div>
                         <div class="legend-item">
                             <div class="legend-dot" style="background-color: #7c8293;"></div>
-                            <span><span class="ja">対象外</span><span class="en" style="display: none;">Exclude</span></span>
+                            <span>Exclude</span>
                         </div>
                     </div>
 
                     <div class="bulk-edit">
-                        <h3><span class="ja">一括編集</span><span class="en" style="display: none;">Bulk Edit</span></h3>
+                        <h3>Bulk Edit</h3>
                         <div class="bulk-grid">
                             <div class="bulk-input">
-                                <label><span class="ja">メンバー選択</span><span class="en" style="display: none;">Select Members</span></label>
+                                <label>Select Members</label>
                                 <div class="bulk-chip-wrap" id="bulkMembers"></div>
                             </div>
                             <div class="bulk-input">
-                                <label><span class="ja">開始日</span><span class="en" style="display: none;">Start Date</span></label>
+                                <label>Start Date</label>
                                 <input type="date" id="bulkStartDate">
                             </div>
                             <div class="bulk-input">
-                                <label><span class="ja">終了日</span><span class="en" style="display: none;">End Date</span></label>
+                                <label>End Date</label>
                                 <input type="date" id="bulkEndDate">
                             </div>
                             <div class="bulk-input">
-                                <label><span class="ja">ステータス</span><span class="en" style="display: none;">Status</span></label>
+                                <label>Status</label>
                                 <select id="bulkStatus">
                                     <option value="available">Available</option>
                                     <option value="late-shift">Late</option>
@@ -972,14 +938,8 @@
                             </div>
                         </div>
                         <div class="bulk-actions">
-                            <button class="copy-btn" id="bulkApplyBtn">
-                                <span class="ja">適用</span>
-                                <span class="en" style="display: none;">Apply</span>
-                            </button>
-                            <button class="regenerate-btn" id="bulkClearBtn">
-                                <span class="ja">クリア</span>
-                                <span class="en" style="display: none;">Clear</span>
-                            </button>
+                            <button class="copy-btn" id="bulkApplyBtn">Apply</button>
+                            <button class="regenerate-btn" id="bulkClearBtn">Clear</button>
                         </div>
                     </div>
                 </div>
@@ -989,36 +949,21 @@
             <div id="schedule" class="tab-content">
                 <div class="grid">
                     <div class="card">
-                        <h2>
-                            <span class="ja">本日のスケジュール</span>
-                            <span class="en" style="display: none;">Today's Schedule</span>
-                        </h2>
+                        <h2>Today's Schedule</h2>
                         <div id="todaySchedule" class="schedule-card"></div>
                         <div>
-                            <button class="copy-btn" id="copyTodayBtn">
-                                <span class="ja">コピー</span>
-                                <span class="en" style="display: none;">Copy</span>
-                            </button>
-                            <button class="regenerate-btn" id="regenerateTodayBtn">
-                                <span class="ja">再生成</span>
-                                <span class="en" style="display: none;">Regenerate</span>
-                            </button>
+                            <button class="copy-btn" id="copyTodayBtn">Copy</button>
+                            <button class="regenerate-btn" id="regenerateTodayBtn">Regenerate</button>
                         </div>
                     </div>
 
                     <div class="card">
-                        <h2>
-                            <span class="ja">次の営業日</span>
-                            <span class="en" style="display: none;">Next Work Day</span>
-                        </h2>
+                        <h2>Next Work Day</h2>
                         <div id="nextWorkDaySchedule" class="schedule-card"></div>
                     </div>
 
                     <div class="card">
-                        <h2>
-                            <span class="ja">日付で検索</span>
-                            <span class="en" style="display: none;">Manual Lookup</span>
-                        </h2>
+                        <h2>Manual Lookup</h2>
                         <div class="date-picker">
                             <input type="date" id="lookupDate">
                         </div>
@@ -1026,10 +971,7 @@
                     </div>
 
                     <div class="card" id="fairnessCard">
-                        <h2>
-                            <span class="ja">シフト分布</span>
-                            <span class="en" style="display: none;">Shift Distribution</span>
-                        </h2>
+                        <h2>Shift Distribution</h2>
                         <div id="fairnessChart"></div>
                     </div>
                 </div>
@@ -1038,21 +980,15 @@
             <!-- Team Tab -->
             <div id="team" class="tab-content">
                 <div class="card">
-                    <h2>
-                        <span class="ja">チームメンバー</span>
-                        <span class="en" style="display: none;">Team Members</span>
-                    </h2>
+                    <h2>Team Members</h2>
                     <div class="team-tags" id="teamTags"></div>
 
                     <div class="team-form">
                         <div class="form-group">
-                            <label><span class="ja">名前</span><span class="en" style="display: none;">Name</span></label>
+                            <label>Name</label>
                             <input type="text" id="newMemberName" placeholder="Tatsuya">
                         </div>
-                        <button class="add-member-btn" id="addMemberBtn">
-                            <span class="ja">メンバー追加</span>
-                            <span class="en" style="display: none;">Add Member</span>
-                        </button>
+                        <button class="add-member-btn" id="addMemberBtn">Add Member</button>
                     </div>
                 </div>
             </div>
@@ -1061,50 +997,35 @@
             <div id="autosend" class="tab-content">
                 <div class="grid">
                     <div class="card">
-                        <h2>
-                            <span class="ja">WebEx設定</span>
-                            <span class="en" style="display: none;">WebEx Configuration</span>
-                        </h2>
+                        <h2>WebEx Configuration</h2>
                         <div class="config-section">
-                            <h3><span class="ja">認証情報</span><span class="en" style="display: none;">Credentials</span></h3>
+                            <h3>Credentials</h3>
                             <div class="form-group">
-                                <label><span class="ja">Bot Token</span><span class="en" style="display: none;">Bot Token</span></label>
+                                <label>Bot Token</label>
                                 <input type="password" id="webexToken" placeholder="xoxb-...">
                             </div>
                             <div class="form-group">
-                                <label><span class="ja">Room ID</span><span class="en" style="display: none;">Room ID</span></label>
+                                <label>Room ID</label>
                                 <input type="password" id="webexRoomId" placeholder="Y2lzY29zcGFyaz...">
                             </div>
                         </div>
 
                         <div class="config-section">
-                            <h3><span class="ja">送信操作</span><span class="en" style="display: none;">Send Actions</span></h3>
+                            <h3>Send Actions</h3>
                             <div class="button-group">
-                                <button class="btn-primary" id="sendMorningBtn">
-                                    <span class="ja">朝のスケジュール送信</span>
-                                    <span class="en" style="display: none;">Send Morning Schedule</span>
-                                </button>
-                                <button class="btn-primary" id="sendEveningBtn">
-                                    <span class="ja">夜のプレビュー送信</span>
-                                    <span class="en" style="display: none;">Send Evening Preview</span>
-                                </button>
-                                <button class="btn-secondary" id="testSendBtn">
-                                    <span class="ja">テスト送信</span>
-                                    <span class="en" style="display: none;">Test Send</span>
-                                </button>
+                                <button class="btn-primary" id="sendMorningBtn">Send Morning</button>
+                                <button class="btn-primary" id="sendEveningBtn">Send Evening</button>
+                                <button class="btn-secondary" id="testSendBtn">Test Send</button>
                             </div>
                         </div>
 
                         <div class="config-section">
-                            <h3><span class="ja">CSV エクスポート</span><span class="en" style="display: none;">CSV Export</span></h3>
+                            <h3>CSV Export</h3>
                             <div class="form-group">
-                                <label><span class="ja">月・年</span><span class="en" style="display: none;">Month/Year</span></label>
+                                <label>Month/Year</label>
                                 <input type="month" id="exportMonth">
                             </div>
-                            <button class="btn-secondary" id="exportCsvBtn">
-                                <span class="ja">ダウンロード</span>
-                                <span class="en" style="display: none;">Download</span>
-                            </button>
+                            <button class="btn-secondary" id="exportCsvBtn">Download</button>
                         </div>
 
                         <div class="cron-info">
@@ -1136,8 +1057,6 @@
         ];
         const LATE_SHIFT_SLOTS = ['12:00–13:00', '14:00–15:00'];
         const STORAGE_PREFIX = 'ss_';
-        const LANG_KEY = `${STORAGE_PREFIX}language`;
-
         // Storage helpers
         function getStorageItem(key) {
             const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
@@ -1150,23 +1069,8 @@
             showSyncStatus('saved');
         }
 
-        // Language toggle
-        let currentLang = localStorage.getItem(LANG_KEY) || 'en';
-
-        function toggleLanguage() {
-            currentLang = currentLang === 'ja' ? 'en' : 'ja';
-            localStorage.setItem(LANG_KEY, currentLang);
-            updateLanguageDisplay();
-        }
-
-        function updateLanguageDisplay() {
-            document.querySelectorAll('.ja, .en').forEach(el => {
-                el.style.display = el.classList.contains(currentLang) ? 'inline' : 'none';
-            });
-        }
-
-        document.getElementById('langToggle').addEventListener('click', toggleLanguage);
-        updateLanguageDisplay();
+        // Language: English only
+        let currentLang = 'en';
 
         // ============ Data Management ============
         let availabilityData = {};
@@ -1560,7 +1464,7 @@
             });
 
             if (pto.length > 0) {
-                html += `<div style="margin-top: 1rem; color: #9ca3af; font-size: 0.85rem;">🌴 <span class="ja">休暇中</span><span class="en" style="display: none;">Out</span>: ${pto.join(', ')}</div>`;
+                html += `<div style="margin-top: 1rem; color: #9ca3af; font-size: 0.85rem;">🌴 Out: ${pto.join(', ')}</div>`;
             }
 
             html += `<div style="margin-top: 1rem; color: #9ca3af; font-size: 0.85rem;">Have a great day! 🙌</div>`;
