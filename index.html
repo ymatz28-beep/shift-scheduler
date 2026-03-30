@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shift Scheduler</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #0d0d0d;
+            --surface: #161616;
+            --border: #262626;
+            --text: #e0e0e0;
+            --text-muted: #777;
+            --accent: #22c55e;
+            --accent-dim: rgba(34,197,94,0.12);
+            --font-body: 'Syne', 'Noto Sans JP', sans-serif;
+            --font-mono: 'DM Mono', monospace;
+        }
+
+        html, body {
+            height: 100%;
+            font-family: var(--font-body);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            background-color: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header h1 {
+            font-family: var(--font-mono);
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--accent);
+            letter-spacing: -0.02em;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .sync-pill {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.2rem 0.6rem;
+            background-color: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .sync-pill.saved::before {
+            content: '✓';
+            color: var(--accent);
+        }
+
+        .lang-toggle {
+            font-family: var(--font-mono);
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 400;
+            transition: all 0.2s ease;
+        }
+
+        .lang-toggle:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        /* Tabs */
+        .tab-container {
+            display: flex;
+            gap: 0.35rem;
+            padding: 0.5rem 1.25rem;
+            border-bottom: 1px solid var(--border);
+            background-color: var(--bg);
+            overflow-x: auto;
+        }
+
+        .tab-button {
+            font-family: var(--font-mono);
+            padding: 0.35rem 0.85rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 400;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            min-width: auto;
+            flex: none;
+        }
+
+        .tab-button:hover {
+            color: var(--text);
+            border-color: var(--accent);
+        }
+
+        .tab-button.active {
+            color: var(--bg);
+            background-color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        /* Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.25rem;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Grid & Cards */
+        .grid {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .card:hover {
+            border-color: #333;
+        }
+
+        .card h2 {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 0.85rem;
+            color: var(--text);
+            letter-spacing: -0.01em;
+        }
+
+        .card h3 {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 0.6rem;
+            color: var(--accent);
+        }
+
+        /* Availability Tab */
+        .week-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 0.5rem;
+        }
+
+        .week-nav button {
+            font-family: var(--font-mono);
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.3rem 0.7rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 400;
+            transition: all 0.2s ease;
+        }
+
+        .week-nav button:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .week-display {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .availability-grid {
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        .grid-table {
+            min-width: 100%;
+            border-collapse: collapse;
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .grid-table th {
+            font-family: var(--font-mono);
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            padding: 0.5rem;
+            text-align: center;
+            font-weight: 400;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .grid-table td {
+            border: 1px solid var(--border);
+            padding: 0.4rem;
+            text-align: center;
+            font-size: 0.75rem;
+        }
+
+        .grid-table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .grid-table tbody tr:hover {
+            background-color: var(--accent-dim);
+        }
+
+        .member-cell {
+            font-family: var(--font-mono);
+            text-align: left;
+            font-weight: 400;
+            min-width: 80px;
+            font-size: 0.75rem;
+        }
+
+        .status-select {
+            font-family: var(--font-mono);
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.3rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 400;
+            min-width: 80px;
+            transition: all 0.15s ease;
+        }
+
+        .status-select:hover {
+            border-color: var(--accent);
+        }
+
+        .status-select:disabled {
+            background-color: var(--surface);
+            border-color: var(--border);
+            color: var(--text-muted);
+            cursor: not-allowed;
+            opacity: 0.4;
+        }
+
+        .status-select.available {
+            border-color: #22c55e;
+        }
+
+        .status-select.late-shift {
+            border-color: #eab308;
+        }
+
+        .status-select.pto {
+            border-color: #a78bfa;
+        }
+
+        .status-select.exclude {
+            border-color: var(--text-muted);
+        }
+
+        .grid-row.past {
+            opacity: 0.5;
+        }
+
+        .grid-table td.past {
+            opacity: 0.35;
+            background-color: rgba(100, 100, 100, 0.06);
+        }
+
+        .legend {
+            display: flex;
+            gap: 1.25rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        /* Bulk Edit */
+        .bulk-edit {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.85rem;
+            margin-top: 1rem;
+        }
+
+        .bulk-edit h3 {
+            margin-bottom: 0.75rem;
+        }
+
+        .bulk-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.6rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .bulk-input {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .bulk-input label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .bulk-input select,
+        .bulk-input input {
+            font-family: var(--font-mono);
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.35rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        .bulk-input select:hover,
+        .bulk-input input:hover {
+            border-color: var(--accent);
+        }
+
+        .bulk-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Schedule Tab */
+        .schedule-card {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .schedule-card h3 {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .schedule-slot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.45rem 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.75rem;
+        }
+
+        .schedule-slot:last-child {
+            border-bottom: none;
+        }
+
+        .schedule-slot.past {
+            opacity: 0.4;
+            color: var(--text-muted);
+        }
+
+        .schedule-time {
+            font-family: var(--font-mono);
+            font-weight: 500;
+            color: var(--accent);
+            min-width: 100px;
+            font-size: 0.75rem;
+        }
+
+        .schedule-people {
+            font-family: var(--font-mono);
+            color: var(--text);
+            font-weight: 400;
+            text-align: right;
+            font-size: 0.75rem;
+        }
+
+        .copy-btn {
+            font-family: var(--font-mono);
+            background-color: var(--accent);
+            border: none;
+            color: var(--bg);
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            margin-top: 0.75rem;
+        }
+
+        .copy-btn:hover {
+            opacity: 0.85;
+        }
+
+        .regenerate-btn {
+            font-family: var(--font-mono);
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 400;
+            transition: all 0.15s ease;
+            margin-top: 0.75rem;
+            margin-left: 0.35rem;
+        }
+
+        .regenerate-btn:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .date-picker {
+            margin-bottom: 0.75rem;
+        }
+
+        .date-picker input {
+            font-family: var(--font-mono);
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.35rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        /* Team Tab */
+        .team-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 1rem;
+        }
+
+        .tag {
+            font-family: var(--font-mono);
+            background-color: var(--accent-dim);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 0.25rem 0.7rem;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 400;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .tag button {
+            background: none;
+            border: none;
+            color: var(--accent);
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .tag button:hover {
+            opacity: 0.7;
+        }
+
+        .team-form {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 0.75rem;
+        }
+
+        .form-group label {
+            font-family: var(--font-mono);
+            display: block;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-bottom: 0.3rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .form-group input {
+            font-family: var(--font-mono);
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.5rem;
+            border-radius: 4px;
+            width: 100%;
+            font-size: 0.8rem;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-dim);
+        }
+
+        .pin-input {
+            letter-spacing: 3px;
+        }
+
+        .add-member-btn {
+            font-family: var(--font-mono);
+            background-color: var(--accent);
+            border: none;
+            color: var(--bg);
+            padding: 0.4rem 1rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+
+        .add-member-btn:hover {
+            opacity: 0.85;
+        }
+
+        .add-member-btn:disabled {
+            background-color: var(--border);
+            cursor: not-allowed;
+            opacity: 0.4;
+        }
+
+        /* Auto-Send Tab */
+        .config-section {
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .config-section h3 {
+            margin-bottom: 0.75rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            font-family: var(--font-mono);
+            background-color: var(--accent);
+            border: none;
+            color: var(--bg);
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.7rem;
+            transition: all 0.15s ease;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.85;
+        }
+
+        .btn-primary:disabled {
+            background-color: var(--border);
+            cursor: not-allowed;
+            opacity: 0.4;
+        }
+
+        .btn-secondary {
+            font-family: var(--font-mono);
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.35rem 0.85rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-weight: 400;
+            font-size: 0.7rem;
+            transition: all 0.15s ease;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .cron-info {
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            line-height: 1.6;
+        }
+
+        .cron-info strong {
+            color: var(--accent);
+        }
+
+        /* Toast */
+        .toast {
+            font-family: var(--font-mono);
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background-color: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 0.6rem 1rem;
+            border-radius: 999px;
+            z-index: 9999;
+            animation: slideIn 0.2s ease;
+            max-width: 280px;
+            font-size: 0.7rem;
+        }
+
+        .toast.success {
+            border-color: var(--accent);
+            background-color: var(--accent-dim);
+            color: var(--accent);
+        }
+
+        .toast.error {
+            border-color: #ef4444;
+            background-color: rgba(239, 68, 68, 0.1);
+            color: #ef4444;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+
+        /* Fairness Chart */
+        .fc-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.4rem;
+            font-size: 0.75rem;
+        }
+
+        .fc-name {
+            font-family: var(--font-mono);
+            min-width: 70px;
+            font-weight: 400;
+            color: var(--text);
+            font-size: 0.7rem;
+        }
+
+        .fc-bar-wrap {
+            flex: 1;
+            background-color: var(--bg);
+            border-radius: 2px;
+            height: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .fc-bar {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            min-width: 3px;
+            opacity: 0.7;
+        }
+
+        .fc-count {
+            min-width: 24px;
+            text-align: right;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            color: var(--accent);
+            font-size: 0.7rem;
+        }
+
+        /* Member chip buttons for bulk-edit */
+        .bulk-chip-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+            padding: 0.3rem 0;
+        }
+
+        .bulk-chip {
+            font-family: var(--font-mono);
+            background-color: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.65rem;
+            font-weight: 400;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .bulk-chip:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .bulk-chip.selected {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg);
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .content-area {
+                padding: 0.75rem;
+            }
+
+            .header {
+                padding: 0.6rem 0.75rem;
+            }
+
+            .tab-container {
+                padding: 0.4rem 0.75rem;
+            }
+
+            .grid {
+                gap: 0.75rem;
+            }
+
+            .card {
+                padding: 0.85rem;
+            }
+
+            .week-nav {
+                flex-wrap: wrap;
+            }
+
+            .bulk-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .bulk-actions {
+                flex-direction: column;
+            }
+
+            .bulk-actions button {
+                width: 100%;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .button-group button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="header">
+            <h1>Shift Scheduler</h1>
+            <div class="header-controls">
+                <div class="sync-pill" id="syncPill">Saved</div>
+                <button class="lang-toggle" id="langToggle">EN / JP</button>
+            </div>
+        </div>
+
+        <div class="tab-container">
+            <button class="tab-button active" data-tab="availability">
+                <span class="ja">シフト入力</span>
+                <span class="en" style="display: none;">Availability</span>
+            </button>
+            <button class="tab-button" data-tab="schedule">
+                <span class="ja">スケジュール</span>
+                <span class="en" style="display: none;">Schedule</span>
+            </button>
+            <button class="tab-button" data-tab="team">
+                <span class="ja">チーム</span>
+                <span class="en" style="display: none;">Team</span>
+            </button>
+            <button class="tab-button" data-tab="autosend">
+                <span class="ja">自動送信</span>
+                <span class="en" style="display: none;">Auto-Send</span>
+            </button>
+        </div>
+
+        <div class="content-area">
+            <!-- Availability Tab -->
+            <div id="availability" class="tab-content active">
+                <div class="card">
+                    <h2>
+                        <span class="ja">週間シフト管理</span>
+                        <span class="en" style="display: none;">Weekly Shift Management</span>
+                    </h2>
+
+                    <div class="week-nav">
+                        <button id="prevWeekBtn">← <span class="ja">前週</span><span class="en" style="display: none;">Prev</span></button>
+                        <div class="week-display" id="weekDisplay"></div>
+                        <button id="nextWeekBtn"><span class="ja">次週</span><span class="en" style="display: none;">Next</span> →</button>
+                        <button id="todayBtn"><span class="ja">今週</span><span class="en" style="display: none;">Today</span></button>
+                    </div>
+
+                    <div class="availability-grid">
+                        <table class="grid-table" id="availabilityGrid">
+                            <thead>
+                                <tr>
+                                    <th><span class="ja">メンバー</span><span class="en" style="display: none;">Member</span></th>
+                                    <th><span class="ja">月</span><span class="en" style="display: none;">Mon</span></th>
+                                    <th><span class="ja">火</span><span class="en" style="display: none;">Tue</span></th>
+                                    <th><span class="ja">水</span><span class="en" style="display: none;">Wed</span></th>
+                                    <th><span class="ja">木</span><span class="en" style="display: none;">Thu</span></th>
+                                    <th><span class="ja">金</span><span class="en" style="display: none;">Fri</span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="availabilityBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #22c55e;"></div>
+                            <span><span class="ja">出勤可</span><span class="en" style="display: none;">Available</span></span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #eab308;"></div>
+                            <span><span class="ja">遅番可</span><span class="en" style="display: none;">Late Shift</span></span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #a78bfa;"></div>
+                            <span><span class="ja">休暇</span><span class="en" style="display: none;">PTO</span></span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-dot" style="background-color: #7c8293;"></div>
+                            <span><span class="ja">対象外</span><span class="en" style="display: none;">Exclude</span></span>
+                        </div>
+                    </div>
+
+                    <div class="bulk-edit">
+                        <h3><span class="ja">一括編集</span><span class="en" style="display: none;">Bulk Edit</span></h3>
+                        <div class="bulk-grid">
+                            <div class="bulk-input">
+                                <label><span class="ja">メンバー選択</span><span class="en" style="display: none;">Select Members</span></label>
+                                <div class="bulk-chip-wrap" id="bulkMembers"></div>
+                            </div>
+                            <div class="bulk-input">
+                                <label><span class="ja">開始日</span><span class="en" style="display: none;">Start Date</span></label>
+                                <input type="date" id="bulkStartDate">
+                            </div>
+                            <div class="bulk-input">
+                                <label><span class="ja">終了日</span><span class="en" style="display: none;">End Date</span></label>
+                                <input type="date" id="bulkEndDate">
+                            </div>
+                            <div class="bulk-input">
+                                <label><span class="ja">ステータス</span><span class="en" style="display: none;">Status</span></label>
+                                <select id="bulkStatus">
+                                    <option value="available">Available</option>
+                                    <option value="late-shift">Late</option>
+                                    <option value="pto">PTO</option>
+                                    <option value="exclude">Exclude</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="bulk-actions">
+                            <button class="copy-btn" id="bulkApplyBtn">
+                                <span class="ja">適用</span>
+                                <span class="en" style="display: none;">Apply</span>
+                            </button>
+                            <button class="regenerate-btn" id="bulkClearBtn">
+                                <span class="ja">クリア</span>
+                                <span class="en" style="display: none;">Clear</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule Tab -->
+            <div id="schedule" class="tab-content">
+                <div class="grid">
+                    <div class="card">
+                        <h2>
+                            <span class="ja">本日のスケジュール</span>
+                            <span class="en" style="display: none;">Today's Schedule</span>
+                        </h2>
+                        <div id="todaySchedule" class="schedule-card"></div>
+                        <div>
+                            <button class="copy-btn" id="copyTodayBtn">
+                                <span class="ja">コピー</span>
+                                <span class="en" style="display: none;">Copy</span>
+                            </button>
+                            <button class="regenerate-btn" id="regenerateTodayBtn">
+                                <span class="ja">再生成</span>
+                                <span class="en" style="display: none;">Regenerate</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h2>
+                            <span class="ja">次の営業日</span>
+                            <span class="en" style="display: none;">Next Work Day</span>
+                        </h2>
+                        <div id="nextWorkDaySchedule" class="schedule-card"></div>
+                    </div>
+
+                    <div class="card">
+                        <h2>
+                            <span class="ja">日付で検索</span>
+                            <span class="en" style="display: none;">Manual Lookup</span>
+                        </h2>
+                        <div class="date-picker">
+                            <input type="date" id="lookupDate">
+                        </div>
+                        <div id="lookupSchedule" class="schedule-card"></div>
+                    </div>
+
+                    <div class="card" id="fairnessCard">
+                        <h2>
+                            <span class="ja">シフト分布</span>
+                            <span class="en" style="display: none;">Shift Distribution</span>
+                        </h2>
+                        <div id="fairnessChart"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Team Tab -->
+            <div id="team" class="tab-content">
+                <div class="card">
+                    <h2>
+                        <span class="ja">チームメンバー</span>
+                        <span class="en" style="display: none;">Team Members</span>
+                    </h2>
+                    <div class="team-tags" id="teamTags"></div>
+
+                    <div class="team-form">
+                        <div class="form-group">
+                            <label><span class="ja">名前</span><span class="en" style="display: none;">Name</span></label>
+                            <input type="text" id="newMemberName" placeholder="Tatsuya">
+                        </div>
+                        <button class="add-member-btn" id="addMemberBtn">
+                            <span class="ja">メンバー追加</span>
+                            <span class="en" style="display: none;">Add Member</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auto-Send Tab -->
+            <div id="autosend" class="tab-content">
+                <div class="grid">
+                    <div class="card">
+                        <h2>
+                            <span class="ja">WebEx設定</span>
+                            <span class="en" style="display: none;">WebEx Configuration</span>
+                        </h2>
+                        <div class="config-section">
+                            <h3><span class="ja">認証情報</span><span class="en" style="display: none;">Credentials</span></h3>
+                            <div class="form-group">
+                                <label><span class="ja">Bot Token</span><span class="en" style="display: none;">Bot Token</span></label>
+                                <input type="password" id="webexToken" placeholder="xoxb-...">
+                            </div>
+                            <div class="form-group">
+                                <label><span class="ja">Room ID</span><span class="en" style="display: none;">Room ID</span></label>
+                                <input type="password" id="webexRoomId" placeholder="Y2lzY29zcGFyaz...">
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h3><span class="ja">送信操作</span><span class="en" style="display: none;">Send Actions</span></h3>
+                            <div class="button-group">
+                                <button class="btn-primary" id="sendMorningBtn">
+                                    <span class="ja">朝のスケジュール送信</span>
+                                    <span class="en" style="display: none;">Send Morning Schedule</span>
+                                </button>
+                                <button class="btn-primary" id="sendEveningBtn">
+                                    <span class="ja">夜のプレビュー送信</span>
+                                    <span class="en" style="display: none;">Send Evening Preview</span>
+                                </button>
+                                <button class="btn-secondary" id="testSendBtn">
+                                    <span class="ja">テスト送信</span>
+                                    <span class="en" style="display: none;">Test Send</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="config-section">
+                            <h3><span class="ja">CSV エクスポート</span><span class="en" style="display: none;">CSV Export</span></h3>
+                            <div class="form-group">
+                                <label><span class="ja">月・年</span><span class="en" style="display: none;">Month/Year</span></label>
+                                <input type="month" id="exportMonth">
+                            </div>
+                            <button class="btn-secondary" id="exportCsvBtn">
+                                <span class="ja">ダウンロード</span>
+                                <span class="en" style="display: none;">Download</span>
+                            </button>
+                        </div>
+
+                        <div class="cron-info">
+                            <strong style="color:var(--accent);">Auto-Send Schedule (GitHub Actions)</strong><br>
+                            Morning: 08:30 JST — today's schedule<br>
+                            Evening: 17:00 JST — next work day preview<br>
+                            Buttons above are for manual/test sends.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="padding:0.75rem 1.25rem;border-top:1px solid var(--border);font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);line-height:1.7;">
+            <strong style="color:var(--accent);">Security</strong> — All data stays in your browser (localStorage). No backend, no database, no cookies. Shift data, team lists, and WebEx tokens never leave your device — the only outbound requests are WebEx messages you send via the Auto-Send tab. You can verify this in DevTools → Network tab. Source code is fully auditable on GitHub.
+        </div>
+    </div>
+
+
+    <script>
+        // ============ Config & Constants ============
+        const DEFAULT_TEAM_MEMBERS = ['Seiryu', 'Masato', 'Yukio', 'Masayuki', 'Kosuke', 'Yancy'];
+        let teamMembers = [...DEFAULT_TEAM_MEMBERS];
+        const TIME_SLOTS = [
+            '09:00–10:00',
+            '10:00–11:00',
+            '11:00–12:00',
+            '12:00–13:00',
+            '13:00–14:00',
+            '14:00–15:00',
+            '16:00–17:00'
+        ];
+        const LATE_SHIFT_SLOTS = ['12:00–13:00', '14:00–15:00'];
+        const STORAGE_PREFIX = 'ss_';
+        const LANG_KEY = `${STORAGE_PREFIX}language`;
+
+        // Storage helpers
+        function getStorageItem(key) {
+            const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
+            if (!raw) return null;
+            try { return JSON.parse(raw); } catch { return null; }
+        }
+
+        function setStorageItem(key, value) {
+            localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(value));
+            showSyncStatus('saved');
+        }
+
+        // Language toggle
+        let currentLang = localStorage.getItem(LANG_KEY) || 'en';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'ja' ? 'en' : 'ja';
+            localStorage.setItem(LANG_KEY, currentLang);
+            updateLanguageDisplay();
+        }
+
+        function updateLanguageDisplay() {
+            document.querySelectorAll('.ja, .en').forEach(el => {
+                el.style.display = el.classList.contains(currentLang) ? 'inline' : 'none';
+            });
+        }
+
+        document.getElementById('langToggle').addEventListener('click', toggleLanguage);
+        updateLanguageDisplay();
+
+        // ============ Data Management ============
+        let availabilityData = {};
+        let scheduleCache = {};
+        let shiftCounts = {};
+        let autoSendTimer = null;
+
+        function initData() {
+            availabilityData = getStorageItem('availability') || {};
+            scheduleCache = getStorageItem('schedule') || {};
+            shiftCounts = getStorageItem('shiftCounts') || {};
+
+            // Load teamMembers from localStorage (unencrypted, non-sensitive)
+            const storedTeam = localStorage.getItem(`${STORAGE_PREFIX}teamMembers`);
+            if (storedTeam) {
+                try { teamMembers = JSON.parse(storedTeam); } catch { teamMembers = [...DEFAULT_TEAM_MEMBERS]; }
+            } else {
+                teamMembers = [...DEFAULT_TEAM_MEMBERS];
+            }
+
+            // Ensure all team members exist in availability data
+            teamMembers.forEach(member => {
+                if (!availabilityData[member]) {
+                    availabilityData[member] = {};
+                }
+                if (shiftCounts[member] === undefined) {
+                    shiftCounts[member] = 0;
+                }
+            });
+        }
+
+        function saveData() {
+            setStorageItem('availability', availabilityData);
+            setStorageItem('schedule', scheduleCache);
+            setStorageItem('shiftCounts', shiftCounts);
+            localStorage.setItem(`${STORAGE_PREFIX}teamMembers`, JSON.stringify(teamMembers));
+        }
+
+        // ============ UI Helpers ============
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        function showSyncStatus(status) {
+            const pill = document.getElementById('syncPill');
+            if (status === 'saved') {
+                pill.textContent = '✓ Saved';
+                pill.classList.add('saved');
+                setTimeout(() => pill.classList.remove('saved'), 2000);
+            }
+        }
+
+        // ============ Date Helpers ============
+        function getMonday(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff));
+        }
+
+        function isSameDay(d1, d2) {
+            return d1.getFullYear() === d2.getFullYear() &&
+                   d1.getMonth() === d2.getMonth() &&
+                   d1.getDate() === d2.getDate();
+        }
+
+        function isWeekday(date) {
+            const day = date.getDay();
+            return day >= 1 && day <= 5;
+        }
+
+        function isPast(date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            return date < today;
+        }
+
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function formatDateJP(date) {
+            const opts = { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' };
+            return date.toLocaleDateString('ja-JP', opts);
+        }
+
+        // ============ Auto-Send on Availability Change ============
+        function autoSendIfConfigured(dateStr) {
+            const config = getWebexConfig();
+            if (!config.token || !config.roomId) return;
+
+            // Show visual indicator
+            const pill = document.getElementById('syncPill');
+            const origText = pill.textContent;
+            pill.textContent = '⏳ auto-sending...';
+            pill.classList.add('saved');
+
+            clearTimeout(autoSendTimer);
+            autoSendTimer = setTimeout(async () => {
+                const date = new Date(dateStr + 'T00:00:00');
+                let schedule = scheduleCache[dateStr];
+                if (!schedule) {
+                    schedule = generateSchedule(date);
+                    scheduleCache[dateStr] = schedule;
+                    saveData();
+                }
+                const msg = formatScheduleForCopy(date, schedule);
+                await sendToWebex(`📝 シフト更新 (${dateStr})\n\n${msg}`, config);
+                pill.textContent = origText;
+                pill.classList.remove('saved');
+            }, 5000);
+        }
+
+        // ============ Availability Tab ============
+        let currentWeekStart = getMonday(new Date());
+
+        function renderAvailabilityGrid() {
+            const tbody = document.getElementById('availabilityBody');
+            tbody.innerHTML = '';
+
+            const weekEnd = new Date(currentWeekStart);
+            weekEnd.setDate(weekEnd.getDate() + 4);
+
+            const dateRow = [];
+            const d = new Date(currentWeekStart);
+            while (d <= weekEnd) {
+                dateRow.push(new Date(d));
+                d.setDate(d.getDate() + 1);
+            }
+
+            teamMembers.forEach(member => {
+                const tr = document.createElement('tr');
+
+                const memberCell = document.createElement('td');
+                memberCell.className = 'member-cell';
+                memberCell.textContent = member;
+                tr.appendChild(memberCell);
+
+                dateRow.forEach(date => {
+                    const td = document.createElement('td');
+                    const dateStr = formatDate(date);
+                    const isDatePast = isPast(date);
+
+                    const select = document.createElement('select');
+                    select.className = 'status-select';
+                    select.disabled = isDatePast;
+
+                    const status = availabilityData[member][dateStr] || 'available';
+                    select.classList.add(status);
+
+                    ['available', 'late-shift', 'pto', 'exclude'].forEach(val => {
+                        const opt = document.createElement('option');
+                        opt.value = val;
+                        opt.textContent = ['Available', 'Late', 'PTO', 'Exclude'][['available', 'late-shift', 'pto', 'exclude'].indexOf(val)];
+                        if (status === val) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+
+                    select.addEventListener('change', (e) => {
+                        const newStatus = e.target.value;
+                        availabilityData[member][dateStr] = newStatus;
+                        select.className = `status-select ${newStatus}`;
+                        saveData();
+                        regenerateSchedules();
+                        autoSendIfConfigured(dateStr);
+                    });
+
+                    td.appendChild(select);
+                    if (isDatePast) {
+                        td.classList.add('past');
+                    }
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+
+            const weekStart = formatDateJP(currentWeekStart);
+            const weekEnd_display = formatDateJP(weekEnd);
+            document.getElementById('weekDisplay').textContent = `${weekStart} - ${weekEnd_display}`;
+        }
+
+        document.getElementById('prevWeekBtn').addEventListener('click', () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() - 7);
+            renderAvailabilityGrid();
+        });
+
+        document.getElementById('nextWeekBtn').addEventListener('click', () => {
+            currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+            renderAvailabilityGrid();
+        });
+
+        document.getElementById('todayBtn').addEventListener('click', () => {
+            currentWeekStart = getMonday(new Date());
+            renderAvailabilityGrid();
+        });
+
+        // Bulk edit — chip buttons
+        function renderBulkMemberSelect() {
+            const wrap = document.getElementById('bulkMembers');
+            wrap.innerHTML = '';
+            teamMembers.forEach(member => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'bulk-chip';
+                chip.textContent = member;
+                chip.dataset.member = member;
+                chip.addEventListener('click', () => {
+                    chip.classList.toggle('selected');
+                });
+                wrap.appendChild(chip);
+            });
+        }
+
+        // Helper: get selected members from chip wrap
+        function getSelectedBulkMembers() {
+            return Array.from(document.querySelectorAll('#bulkMembers .bulk-chip.selected'))
+                .map(c => c.dataset.member);
+        }
+
+        document.getElementById('bulkApplyBtn').addEventListener('click', () => {
+            const members = getSelectedBulkMembers();
+            const startDate = new Date(document.getElementById('bulkStartDate').value);
+            const endDate = new Date(document.getElementById('bulkEndDate').value);
+            const status = document.getElementById('bulkStatus').value;
+
+            if (!members.length || !startDate || !endDate) {
+                showToast('Select dates and members', 'error');
+                return;
+            }
+
+            const d = new Date(startDate);
+            while (d <= endDate) {
+                if (isWeekday(d)) {
+                    members.forEach(member => {
+                        availabilityData[member][formatDate(d)] = status;
+                    });
+                }
+                d.setDate(d.getDate() + 1);
+            }
+
+            saveData();
+            renderAvailabilityGrid();
+            regenerateSchedules();
+            showToast('Applied');
+        });
+
+        document.getElementById('bulkClearBtn').addEventListener('click', () => {
+            const members = getSelectedBulkMembers();
+            const startDate = new Date(document.getElementById('bulkStartDate').value);
+            const endDate = new Date(document.getElementById('bulkEndDate').value);
+
+            if (!members.length || !startDate || !endDate) {
+                showToast('Select dates and members', 'error');
+                return;
+            }
+
+            const d = new Date(startDate);
+            while (d <= endDate) {
+                if (isWeekday(d)) {
+                    members.forEach(member => {
+                        delete availabilityData[member][formatDate(d)];
+                    });
+                }
+                d.setDate(d.getDate() + 1);
+            }
+
+            saveData();
+            renderAvailabilityGrid();
+            regenerateSchedules();
+            showToast('Cleared');
+        });
+
+        // ============ Schedule Generation ============
+        function generateSchedule(targetDate) {
+            const dateStr = formatDate(targetDate);
+            
+            // Get available members
+            const available = teamMembers.filter(member => {
+                const status = availabilityData[member][dateStr] || 'available';
+                return status !== 'pto' && status !== 'exclude';
+            });
+
+            if (available.length < 2) {
+                return { error: 'Not enough members' };
+            }
+
+            const schedule = {};
+            TIME_SLOTS.forEach(slot => {
+                const isLateShift = LATE_SHIFT_SLOTS.includes(slot);
+                let candidates = available;
+
+                if (isLateShift) {
+                    const lateAvail = teamMembers.filter(member => {
+                        const status = availabilityData[member][dateStr] || 'available';
+                        return status === 'late-shift' || status === 'available';
+                    });
+                    if (lateAvail.length < 2) {
+                        candidates = available;
+                    } else {
+                        candidates = lateAvail;
+                    }
+                }
+
+                // Random assignment of 2 people
+                const shuffled = candidates.sort(() => Math.random() - 0.5);
+                const assigned = [shuffled[0], shuffled[1]];
+                schedule[slot] = assigned;
+                assigned.forEach(m => {
+                    shiftCounts[m] = (shiftCounts[m] || 0) + 1;
+                });
+            });
+
+            return schedule;
+        }
+
+        function regenerateSchedules() {
+            const today = new Date();
+            scheduleCache[formatDate(today)] = generateSchedule(today);
+
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            while (!isWeekday(tomorrow)) {
+                tomorrow.setDate(tomorrow.getDate() + 1);
+            }
+            scheduleCache[formatDate(tomorrow)] = generateSchedule(tomorrow);
+
+            saveData();
+            renderScheduleTab();
+        }
+
+        function getNextWorkDay(from = new Date()) {
+            const next = new Date(from);
+            next.setDate(next.getDate() + 1);
+            while (!isWeekday(next)) {
+                next.setDate(next.getDate() + 1);
+            }
+            return next;
+        }
+
+        function renderScheduleTab() {
+            const today = new Date();
+            const todayStr = formatDate(today);
+
+            // Ensure schedules exist
+            if (!scheduleCache[todayStr]) {
+                scheduleCache[todayStr] = generateSchedule(today);
+            }
+
+            const nextWorkDay = getNextWorkDay(today);
+            const nextWorkDayStr = formatDate(nextWorkDay);
+            if (!scheduleCache[nextWorkDayStr]) {
+                scheduleCache[nextWorkDayStr] = generateSchedule(nextWorkDay);
+            }
+
+            renderScheduleCard('todaySchedule', today, scheduleCache[todayStr]);
+            renderScheduleCard('nextWorkDaySchedule', nextWorkDay, scheduleCache[nextWorkDayStr]);
+            renderFairnessChart();
+        }
+
+        function renderScheduleCard(elementId, date, schedule) {
+            const el = document.getElementById(elementId);
+            if (!schedule || schedule.error) {
+                el.innerHTML = `<p style="color: #ef4444;">${schedule?.error || 'Generation failed'}</p>`;
+                return;
+            }
+
+            let html = `<h3 style="margin-bottom: 1rem;">${formatDateJP(date)}</h3>`;
+            const now = new Date();
+
+            TIME_SLOTS.forEach(slot => {
+                const people = schedule[slot] || [];
+                const isPastTime = elementId === 'todaySchedule' && isSameDay(now, date) && isPastTimeSlot(slot, now);
+                const pastClass = isPastTime ? 'past' : '';
+
+                html += `
+                    <div class="schedule-slot ${pastClass}">
+                        <div class="schedule-time">${slot}</div>
+                        <div class="schedule-people">${people.join(' · ')}</div>
+                    </div>
+                `;
+            });
+
+            const pto = teamMembers.filter(m => {
+                const status = availabilityData[m][formatDate(date)] || 'available';
+                return status === 'pto';
+            });
+
+            if (pto.length > 0) {
+                html += `<div style="margin-top: 1rem; color: #9ca3af; font-size: 0.85rem;">🌴 <span class="ja">休暇中</span><span class="en" style="display: none;">Out</span>: ${pto.join(', ')}</div>`;
+            }
+
+            html += `<div style="margin-top: 1rem; color: #9ca3af; font-size: 0.85rem;">Have a great day! 🙌</div>`;
+
+            el.innerHTML = html;
+        }
+
+        function renderFairnessChart() {
+            const container = document.getElementById('fairnessChart');
+            if (!container) return;
+            const max = Math.max(1, ...teamMembers.map(m => shiftCounts[m] || 0));
+            container.innerHTML = teamMembers.map(m => {
+                const count = shiftCounts[m] || 0;
+                const pct = Math.round((count / max) * 100);
+                return `<div class="fc-row">
+                    <span class="fc-name">${m}</span>
+                    <div class="fc-bar-wrap">
+                        <div class="fc-bar" style="width:${pct}%"></div>
+                    </div>
+                    <span class="fc-count">${count}</span>
+                </div>`;
+            }).join('');
+        }
+
+        function isPastTimeSlot(timeSlot, now) {
+            const [hours, minutes] = timeSlot.split('–')[1].split(':').map(Number);
+            return now.getHours() > hours || (now.getHours() === hours && now.getMinutes() >= minutes);
+        }
+
+        function formatScheduleForCopy(date, schedule) {
+            if (!schedule || schedule.error) return '(スケジュール生成失敗)';
+
+            const dateStr = currentLang === 'ja' ? formatDateJP(date) : date.toLocaleDateString('en-US');
+            let msg = `📞 Phone Shift Schedule — ${dateStr}\n━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
+            TIME_SLOTS.forEach(slot => {
+                const people = schedule[slot] || [];
+                msg += `  ${slot}  →  ${people.join(' · ')}\n`;
+            });
+
+            msg += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            msg += `🕐 Late shift coverage: 12:00–13:00, 14:00–15:00\n`;
+
+            const pto = teamMembers.filter(m => {
+                const status = availabilityData[m][formatDate(date)] || 'available';
+                return status === 'pto';
+            });
+
+            if (pto.length > 0) {
+                msg += `🌴 Out: ${pto.join(', ')}\n`;
+            }
+
+            msg += `Have a great day! 🙌`;
+            return msg;
+        }
+
+        document.getElementById('copyTodayBtn').addEventListener('click', () => {
+            const today = new Date();
+            const msg = formatScheduleForCopy(today, scheduleCache[formatDate(today)]);
+            navigator.clipboard.writeText(msg);
+            showToast('Copied');
+        });
+
+        document.getElementById('regenerateTodayBtn').addEventListener('click', () => {
+            regenerateSchedules();
+            showToast('Regenerated');
+        });
+
+        document.getElementById('lookupDate').addEventListener('change', (e) => {
+            const date = new Date(e.target.value);
+            if (!isWeekday(date)) {
+                document.getElementById('lookupSchedule').innerHTML = '<p style="color: #ef4444;">Please select a weekday</p>';
+                return;
+            }
+
+            let schedule = scheduleCache[formatDate(date)];
+            if (!schedule) {
+                schedule = generateSchedule(date);
+                scheduleCache[formatDate(date)] = schedule;
+                saveData();
+            }
+
+            renderScheduleCard('lookupSchedule', date, schedule);
+        });
+
+        // ============ Team Tab ============
+        function renderTeamTags() {
+            const container = document.getElementById('teamTags');
+            container.innerHTML = '';
+
+            teamMembers.forEach(member => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `
+                    ${member}
+                    <button data-member="${member}">×</button>
+                `;
+                tag.querySelector('button').addEventListener('click', () => {
+                    if (!confirm(`Remove "${member}" from the team?`)) return;
+                    const idx = teamMembers.indexOf(member);
+                    if (idx > -1) {
+                        teamMembers.splice(idx, 1);
+                        delete availabilityData[member];
+                        saveData();
+                        renderTeamTags();
+                        renderBulkMemberSelect();
+                        renderAvailabilityGrid();
+                    }
+                });
+                container.appendChild(tag);
+            });
+        }
+
+        document.getElementById('addMemberBtn').addEventListener('click', () => {
+            const name = document.getElementById('newMemberName').value.trim();
+
+            if (!name) {
+                showToast('Enter a name', 'error');
+                return;
+            }
+
+            if (teamMembers.includes(name)) {
+                showToast('Already exists', 'error');
+                return;
+            }
+
+            teamMembers.push(name);
+            availabilityData[name] = {};
+            saveData();
+
+            document.getElementById('newMemberName').value = '';
+
+            renderTeamTags();
+            renderBulkMemberSelect();
+            renderAvailabilityGrid();
+            showToast('Added');
+        });
+
+        // ============ Auto-Send Tab ============
+        const WEBEX_TOKEN_KEY = `${STORAGE_PREFIX}webex_token`;
+        const WEBEX_ROOM_KEY  = `${STORAGE_PREFIX}webex_room`;
+        let webexSaveTimer = null;
+
+        function loadWebexConfig() {
+            const token  = localStorage.getItem(WEBEX_TOKEN_KEY)  || '';
+            const roomId = localStorage.getItem(WEBEX_ROOM_KEY)   || '';
+            document.getElementById('webexToken').value  = token;
+            document.getElementById('webexRoomId').value = roomId;
+        }
+
+        function persistWebexConfig() {
+            clearTimeout(webexSaveTimer);
+            webexSaveTimer = setTimeout(() => {
+                localStorage.setItem(WEBEX_TOKEN_KEY, document.getElementById('webexToken').value);
+                localStorage.setItem(WEBEX_ROOM_KEY,  document.getElementById('webexRoomId').value);
+                showSyncStatus('saved');
+            }, 600);
+        }
+
+        function getWebexConfig() {
+            const token = document.getElementById('webexToken').value;
+            const roomId = document.getElementById('webexRoomId').value;
+            return { token, roomId };
+        }
+
+        async function sendToWebex(message, config) {
+            if (!config.token || !config.roomId) {
+                showToast('WebEx config required', 'error');
+                return false;
+            }
+
+            try {
+                const response = await fetch('https://webexapis.com/v1/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${config.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        roomId: config.roomId,
+                        markdown: message
+                    })
+                });
+
+                if (response.ok) {
+                    showToast('Sent to WebEx');
+                    return true;
+                } else {
+                    showToast(`送信エラー: ${response.status}`, 'error');
+                    return false;
+                }
+            } catch (err) {
+                showToast(`エラー: ${err.message}`, 'error');
+                return false;
+            }
+        }
+
+        document.getElementById('sendMorningBtn').addEventListener('click', async () => {
+            const today = new Date();
+            const schedule = scheduleCache[formatDate(today)] || generateSchedule(today);
+            const msg = formatScheduleForCopy(today, schedule);
+            const config = getWebexConfig();
+
+            await sendToWebex(msg, config);
+        });
+
+        document.getElementById('sendEveningBtn').addEventListener('click', async () => {
+            const nextWorkDay = getNextWorkDay();
+            const schedule = scheduleCache[formatDate(nextWorkDay)] || generateSchedule(nextWorkDay);
+            const msg = `📅 Tomorrow's Preview\n\n${formatScheduleForCopy(nextWorkDay, schedule)}`;
+            const config = getWebexConfig();
+
+            await sendToWebex(msg, config);
+        });
+
+        document.getElementById('testSendBtn').addEventListener('click', async () => {
+            const config = getWebexConfig();
+            const testMsg = '🧪 Test message from Shift Scheduler';
+            await sendToWebex(testMsg, config);
+        });
+
+        document.getElementById('exportCsvBtn').addEventListener('click', () => {
+            const monthInput = document.getElementById('exportMonth').value;
+            if (!monthInput) {
+                showToast('Select a month', 'error');
+                return;
+            }
+
+            const [year, month] = monthInput.split('-').map(Number);
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0);
+
+            let csv = 'Date,' + teamMembers.join(',') + '\n';
+
+            const d = new Date(startDate);
+            while (d <= endDate) {
+                if (isWeekday(d)) {
+                    const dateStr = formatDate(d);
+                    const row = [formatDateJP(d)];
+
+                    teamMembers.forEach(member => {
+                        const status = availabilityData[member][dateStr] || 'available';
+                        row.push(status === 'available' ? 'A' : status === 'late-shift' ? 'L' : status === 'pto' ? 'P' : 'X');
+                    });
+
+                    csv += row.join(',') + '\n';
+                }
+                d.setDate(d.getDate() + 1);
+            }
+
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `shift_schedule_${monthInput}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showToast('Downloaded');
+        });
+
+        // ============ Tab Navigation ============
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.getAttribute('data-tab');
+
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById(tabName).classList.add('active');
+
+                if (tabName === 'schedule') {
+                    renderScheduleTab();
+                }
+            });
+        });
+
+        // ============ Initialization ============
+        initData();
+        loadWebexConfig();
+
+        // Persist WebEx credentials on change
+        document.getElementById('webexToken').addEventListener('input', persistWebexConfig);
+        document.getElementById('webexRoomId').addEventListener('input', persistWebexConfig);
+
+        renderAvailabilityGrid();
+        renderBulkMemberSelect();
+        renderTeamTags();
+
+        // Ensure schedule exists on load
+        const today = new Date();
+        if (!scheduleCache[formatDate(today)]) {
+            regenerateSchedules();
+        }
+    </script>
+</body>
+</html>
