@@ -1,0 +1,49 @@
+name: Shift Notification
+
+on:
+  schedule:
+    # Weekday morning 08:30 JST (23:30 UTC previous day)
+    - cron: '30 23 * * 0-3'
+    # Weekday evening 17:00 JST (08:00 UTC)
+    - cron: '0 8 * * 1-4'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Send mode'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - evening
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine send mode
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+          else
+            CRON="${{ github.event.schedule }}"
+            if [ "$CRON" = "30 23 * * 0-3" ]; then
+              echo "mode=morning" >> "$GITHUB_OUTPUT"
+            else
+              echo "mode=evening" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Send shift notification
+        env:
+          WEBEX_TOKEN: ${{ secrets.WEBEX_TOKEN }}
+          WEBEX_ROOM_ID: ${{ secrets.WEBEX_ROOM_ID }}
+        run: |
+          if [ "${{ steps.mode.outputs.mode }}" = "evening" ]; then
+            python .github/scripts/send_shift.py --evening
+          else
+            python .github/scripts/send_shift.py
+          fi
