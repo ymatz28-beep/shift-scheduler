@@ -1415,9 +1415,9 @@
                     }
                 }
 
-                // Random assignment of 2 people
+                // Random assignment of 1 person
                 const shuffled = candidates.sort(() => Math.random() - 0.5);
-                const assigned = [shuffled[0], shuffled[1]];
+                const assigned = [shuffled[0]];
                 schedule[slot] = assigned;
                 assigned.forEach(m => {
                     shiftCounts[m] = (shiftCounts[m] || 0) + 1;
@@ -1542,18 +1542,26 @@
             });
 
             msg += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
-            msg += `🕐 Late shift coverage: 12:00–13:00, 14:00–15:00\n`;
 
-            const pto = teamMembers.filter(m => {
-                const status = availabilityData[m][formatDate(date)] || 'available';
+            const dStr = formatDate(date);
+            const lateMembers = teamMembers.filter(m => {
+                const status = availabilityData[m][dStr] || 'available';
+                return status === 'late-shift';
+            });
+            const ptoMembers = teamMembers.filter(m => {
+                const status = availabilityData[m][dStr] || 'available';
                 return status === 'pto';
             });
 
-            if (pto.length > 0) {
-                msg += `🌴 Out: ${pto.join(', ')}\n`;
+            if (lateMembers.length > 0) {
+                msg += `🕐 Late shift: ${lateMembers.join(', ')}\n`;
+            }
+            if (ptoMembers.length > 0) {
+                msg += `🌴 PTO: ${ptoMembers.join(', ')}\n`;
             }
 
-            msg += `Have a great day! 🙌`;
+            msg += `\nHave a great day! 🙌\n`;
+            msg += `📋 https://ymatz28-beep.github.io/shift-scheduler/`;
             return msg;
         }
 
