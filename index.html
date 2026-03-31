@@ -797,6 +797,35 @@
         }
 
         /* Late Shift Slot Toggles */
+        .people-per-slot {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.5rem;
+        }
+
+        .people-chip {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            padding: 0.35rem 0.85rem;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .people-chip:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .people-chip.active {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: var(--bg);
+        }
+
         .slot-toggle-grid {
             display: grid;
             gap: 0.4rem;
@@ -1114,6 +1143,14 @@
                     <div class="card">
                         <h2>Schedule Settings</h2>
                         <div class="config-section">
+                            <h3>People Per Slot</h3>
+                            <p style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.5;">
+                                How many people are assigned to each time slot. Default is 1. Set to 2 for a two-person schedule.
+                            </p>
+                            <div class="people-per-slot" id="peoplePerSlotChips"></div>
+                        </div>
+
+                        <div class="config-section">
                             <h3>Late Shift Slots</h3>
                             <p style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.5;">
                                 Select which time slots are reserved for late-shift staff. Multiple slots can be selected. Toggle to activate or deactivate a slot.
@@ -1168,6 +1205,7 @@
             '16:00–17:00'
         ];
         let LATE_SHIFT_SLOTS = [];
+        let PEOPLE_PER_SLOT = 1;
         const STORAGE_PREFIX = 'ss_';
         // Storage helpers
         function getStorageItem(key) {
@@ -1207,6 +1245,12 @@
             const storedLateSlots = getStorageItem('lateShiftSlots');
             if (storedLateSlots) {
                 LATE_SHIFT_SLOTS = storedLateSlots;
+            }
+
+            // Load people per slot config
+            const storedPeople = getStorageItem('peoplePerSlot');
+            if (storedPeople) {
+                PEOPLE_PER_SLOT = storedPeople;
             }
 
             // Ensure all team members exist in availability data
@@ -1497,9 +1541,9 @@
                     }
                 }
 
-                // Random assignment of 1 person
+                // Random assignment based on PEOPLE_PER_SLOT
                 const shuffled = candidates.sort(() => Math.random() - 0.5);
-                const assigned = [shuffled[0]];
+                const assigned = shuffled.slice(0, Math.min(PEOPLE_PER_SLOT, shuffled.length));
                 schedule[slot] = assigned;
                 assigned.forEach(m => {
                     shiftCounts[m] = (shiftCounts[m] || 0) + 1;
@@ -1881,6 +1925,29 @@
         document.getElementById('webexToken').addEventListener('input', persistWebexConfig);
         document.getElementById('webexRoomId').addEventListener('input', persistWebexConfig);
 
+        // ============ People Per Slot ============
+        function renderPeoplePerSlotChips() {
+            const container = document.getElementById('peoplePerSlotChips');
+            container.innerHTML = '';
+
+            [1, 2, 3].forEach(n => {
+                const chip = document.createElement('button');
+                chip.type = 'button';
+                chip.className = 'people-chip' + (PEOPLE_PER_SLOT === n ? ' active' : '');
+                chip.textContent = n === 1 ? '1 person' : `${n} people`;
+
+                chip.addEventListener('click', () => {
+                    PEOPLE_PER_SLOT = n;
+                    setStorageItem('peoplePerSlot', n);
+                    container.querySelectorAll('.people-chip').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    regenerateSchedules();
+                });
+
+                container.appendChild(chip);
+            });
+        }
+
         // ============ Late Shift Slot Toggles ============
         function renderLateShiftSlotToggles() {
             const container = document.getElementById('lateShiftSlotToggles');
@@ -1915,6 +1982,7 @@
         renderAvailabilityGrid();
         renderBulkMemberSelect();
         renderTeamTags();
+        renderPeoplePerSlotChips();
         renderLateShiftSlotToggles();
 
         // Ensure schedule exists on load
