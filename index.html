@@ -1525,6 +1525,7 @@
             }
 
             const schedule = {};
+            let prevAssigned = [];
             TIME_SLOTS.forEach(slot => {
                 const isLateShift = LATE_SHIFT_SLOTS.includes(slot);
                 let candidates = available;
@@ -1541,10 +1542,18 @@
                     }
                 }
 
+                // Avoid back-to-back: exclude people assigned in the previous slot
+                let filtered = candidates.filter(m => !prevAssigned.includes(m));
+                // Fallback if not enough candidates after filtering
+                if (filtered.length < PEOPLE_PER_SLOT) {
+                    filtered = candidates;
+                }
+
                 // Random assignment based on PEOPLE_PER_SLOT
-                const shuffled = candidates.sort(() => Math.random() - 0.5);
+                const shuffled = filtered.sort(() => Math.random() - 0.5);
                 const assigned = shuffled.slice(0, Math.min(PEOPLE_PER_SLOT, shuffled.length));
                 schedule[slot] = assigned;
+                prevAssigned = assigned;
                 assigned.forEach(m => {
                     shiftCounts[m] = (shiftCounts[m] || 0) + 1;
                 });
