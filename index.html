@@ -796,6 +796,71 @@
             color: var(--bg);
         }
 
+        /* Late Shift Slot Toggles */
+        .slot-toggle-grid {
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .slot-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.45rem 0.6rem;
+            background-color: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            user-select: none;
+        }
+
+        .slot-toggle:hover {
+            border-color: #eab308;
+        }
+
+        .slot-toggle.active {
+            border-color: #eab308;
+            background-color: rgba(234, 179, 8, 0.08);
+        }
+
+        .slot-toggle-label {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--text);
+        }
+
+        .slot-toggle-switch {
+            width: 32px;
+            height: 18px;
+            border-radius: 999px;
+            background-color: var(--border);
+            position: relative;
+            transition: background-color 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .slot-toggle.active .slot-toggle-switch {
+            background-color: #eab308;
+        }
+
+        .slot-toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background-color: var(--text);
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s ease;
+        }
+
+        .slot-toggle.active .slot-toggle-switch::after {
+            transform: translateX(14px);
+            background-color: var(--bg);
+        }
+
         /* Responsive */
         @media (max-width: 700px) {
             .content-area {
@@ -1045,6 +1110,17 @@
                             Buttons above are for manual/test sends.
                         </div>
                     </div>
+
+                    <div class="card">
+                        <h2>Schedule Settings</h2>
+                        <div class="config-section">
+                            <h3>Late Shift Slots</h3>
+                            <p style="font-family:var(--font-mono);font-size:0.65rem;color:var(--text-muted);margin-bottom:0.75rem;line-height:1.5;">
+                                Select which time slots are reserved for late-shift staff. Multiple slots can be selected. Toggle to activate or deactivate a slot.
+                            </p>
+                            <div class="slot-toggle-grid" id="lateShiftSlotToggles"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1091,7 +1167,7 @@
             '14:00–15:00',
             '16:00–17:00'
         ];
-        const LATE_SHIFT_SLOTS = ['12:00–13:00', '14:00–15:00'];
+        let LATE_SHIFT_SLOTS = [];
         const STORAGE_PREFIX = 'ss_';
         // Storage helpers
         function getStorageItem(key) {
@@ -1125,6 +1201,12 @@
                 try { teamMembers = JSON.parse(storedTeam); } catch { teamMembers = [...DEFAULT_TEAM_MEMBERS]; }
             } else {
                 teamMembers = [...DEFAULT_TEAM_MEMBERS];
+            }
+
+            // Load late shift slots config
+            const storedLateSlots = getStorageItem('lateShiftSlots');
+            if (storedLateSlots) {
+                LATE_SHIFT_SLOTS = storedLateSlots;
             }
 
             // Ensure all team members exist in availability data
@@ -1485,10 +1567,12 @@
                 const people = schedule[slot] || [];
                 const isPastTime = elementId === 'todaySchedule' && isSameDay(now, date) && isPastTimeSlot(slot, now);
                 const pastClass = isPastTime ? 'past' : '';
+                const isLate = LATE_SHIFT_SLOTS.includes(slot);
+                const lateTag = isLate ? '<span style="color:#eab308;font-size:0.6rem;margin-left:0.4rem;">LATE</span>' : '';
 
                 html += `
                     <div class="schedule-slot ${pastClass}">
-                        <div class="schedule-time">${slot}</div>
+                        <div class="schedule-time">${slot}${lateTag}</div>
                         <div class="schedule-people">${people.join(' · ')}</div>
                     </div>
                 `;
@@ -1797,9 +1881,41 @@
         document.getElementById('webexToken').addEventListener('input', persistWebexConfig);
         document.getElementById('webexRoomId').addEventListener('input', persistWebexConfig);
 
+        // ============ Late Shift Slot Toggles ============
+        function renderLateShiftSlotToggles() {
+            const container = document.getElementById('lateShiftSlotToggles');
+            container.innerHTML = '';
+
+            TIME_SLOTS.forEach(slot => {
+                const toggle = document.createElement('div');
+                toggle.className = 'slot-toggle' + (LATE_SHIFT_SLOTS.includes(slot) ? ' active' : '');
+
+                toggle.innerHTML = `
+                    <span class="slot-toggle-label">${slot}</span>
+                    <div class="slot-toggle-switch"></div>
+                `;
+
+                toggle.addEventListener('click', () => {
+                    const idx = LATE_SHIFT_SLOTS.indexOf(slot);
+                    if (idx > -1) {
+                        LATE_SHIFT_SLOTS.splice(idx, 1);
+                        toggle.classList.remove('active');
+                    } else {
+                        LATE_SHIFT_SLOTS.push(slot);
+                        toggle.classList.add('active');
+                    }
+                    setStorageItem('lateShiftSlots', LATE_SHIFT_SLOTS);
+                    regenerateSchedules();
+                });
+
+                container.appendChild(toggle);
+            });
+        }
+
         renderAvailabilityGrid();
         renderBulkMemberSelect();
         renderTeamTags();
+        renderLateShiftSlotToggles();
 
         // Ensure schedule exists on load
         const today = new Date();
