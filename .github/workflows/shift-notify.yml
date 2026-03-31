@@ -2,10 +2,10 @@ name: Shift Notification
 
 on:
   schedule:
-    # Weekday morning 08:00 JST (23:00 UTC previous day)
-    - cron: '0 23 * * 0-3'
-    # Weekday evening 17:00 JST (08:00 UTC)
-    - cron: '0 8 * * 1-4'
+    # Weekday morning 08:00 JST (23:00 UTC previous day, Sun-Thu = Mon-Fri JST)
+    - cron: '0 23 * * 0-4'
+    # Weekday evening 16:30 JST (07:30 UTC, Mon-Fri)
+    - cron: '30 7 * * 1-5'
   workflow_dispatch:
     inputs:
       mode:
@@ -30,7 +30,7 @@ jobs:
             echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
           else
             CRON="${{ github.event.schedule }}"
-            if [ "$CRON" = "0 23 * * 0-3" ]; then
+            if [ "$CRON" = "0 23 * * 0-4" ]; then
               echo "mode=morning" >> "$GITHUB_OUTPUT"
             else
               echo "mode=evening" >> "$GITHUB_OUTPUT"
