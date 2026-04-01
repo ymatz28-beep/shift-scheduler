@@ -46,21 +46,43 @@ def generate_schedule(data: dict, target: date) -> dict:
     time_slots = data["time_slots"]
     late_slots = data.get("late_shift_slots", [])
 
-    available = [m for m in members if get_status(data, m, date_str) not in ("pto", "exclude")]
+    # Categorize members by status
+    late_shift_members = []
+    regular_members = []
+    for m in members:
+        status = get_status(data, m, date_str)
+        if status in ("pto", "exclude"):
+            continue
+        if status == "late-shift":
+            late_shift_members.append(m)
+        else:
+            regular_members.append(m)
 
-    if len(available) < 1:
+    all_available = regular_members + late_shift_members
+    if len(all_available) < 1:
         return {"error": "Not enough members"}
 
     schedule = {}
-    for slot in time_slots:
-        if slot in late_slots:
-            late_avail = [m for m in members if get_status(data, m, date_str) in ("late-shift", "available")]
-            candidates = late_avail if late_avail else available
-        else:
-            candidates = available
 
-        random.shuffle(candidates)
-        schedule[slot] = [candidates[0]]
+    # 1. Late-shift slots: ONLY late-shift members
+    late_slot_list = [s for s in time_slots if s in late_slots]
+    regular_slot_list = [s for s in time_slots if s not in late_slots]
+
+    if late_slot_list and late_shift_members:
+        shuffled_late = late_shift_members[:]
+        random.shuffle(shuffled_late)
+        for i, slot in enumerate(late_slot_list):
+            schedule[slot] = [shuffled_late[i % len(shuffled_late)]]
+    elif late_slot_list:
+        # No late-shift members: include these slots in regular round-robin
+        regular_slot_list = [s for s in time_slots if s not in schedule]
+
+    # 2. Round-robin for regular slots (only regular members)
+    pool = regular_members if regular_members else all_available
+    random.shuffle(pool)
+    slots_to_fill = [s for s in time_slots if s not in schedule]
+    for i, slot in enumerate(slots_to_fill):
+        schedule[slot] = [pool[i % len(pool)]]
 
     return schedule
 

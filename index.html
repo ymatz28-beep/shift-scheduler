@@ -1511,52 +1511,69 @@
         });
 
         // ============ Schedule Generation ============
+        // Fisher-Yates shuffle (unbiased)
+        function shuffleArray(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
         function generateSchedule(targetDate) {
             const dateStr = formatDate(targetDate);
-            
-            // Get available members
-            const available = teamMembers.filter(member => {
+
+            // Categorize members by status
+            const lateShiftMembers = [];
+            const regularMembers = [];
+
+            teamMembers.forEach(member => {
                 const status = availabilityData[member][dateStr] || 'available';
-                return status !== 'pto' && status !== 'exclude';
+                if (status === 'pto' || status === 'exclude') return;
+                if (status === 'late-shift') {
+                    lateShiftMembers.push(member);
+                } else {
+                    regularMembers.push(member);
+                }
             });
 
-            if (available.length < 2) {
+            const allAvailable = [...regularMembers, ...lateShiftMembers];
+            if (allAvailable.length < 1) {
                 return { error: 'Not enough members' };
             }
 
+            // Separate slots into late-shift and regular
+            const lateSlots = TIME_SLOTS.filter(s => LATE_SHIFT_SLOTS.includes(s));
+            const regularSlots = TIME_SLOTS.filter(s => !LATE_SHIFT_SLOTS.includes(s));
+
             const schedule = {};
-            let prevAssigned = [];
-            TIME_SLOTS.forEach(slot => {
-                const isLateShift = LATE_SHIFT_SLOTS.includes(slot);
-                let candidates = available;
 
-                if (isLateShift) {
-                    const lateAvail = teamMembers.filter(member => {
-                        const status = availabilityData[member][dateStr] || 'available';
-                        return status === 'late-shift' || status === 'available';
-                    });
-                    if (lateAvail.length < 2) {
-                        candidates = available;
-                    } else {
-                        candidates = lateAvail;
-                    }
-                }
-
-                // Avoid back-to-back: exclude people assigned in the previous slot
-                let filtered = candidates.filter(m => !prevAssigned.includes(m));
-                // Fallback if not enough candidates after filtering
-                if (filtered.length < PEOPLE_PER_SLOT) {
-                    filtered = candidates;
-                }
-
-                // Random assignment based on PEOPLE_PER_SLOT
-                const shuffled = filtered.sort(() => Math.random() - 0.5);
-                const assigned = shuffled.slice(0, Math.min(PEOPLE_PER_SLOT, shuffled.length));
-                schedule[slot] = assigned;
-                prevAssigned = assigned;
-                assigned.forEach(m => {
-                    shiftCounts[m] = (shiftCounts[m] || 0) + 1;
+            // 1. Assign late-shift slots: ONLY late-shift members
+            if (lateSlots.length > 0 && lateShiftMembers.length > 0) {
+                const shuffledLate = shuffleArray(lateShiftMembers);
+                lateSlots.forEach((slot, i) => {
+                    const member = shuffledLate[i % shuffledLate.length];
+                    schedule[slot] = [member];
+                    shiftCounts[member] = (shiftCounts[member] || 0) + 1;
                 });
+            } else if (lateSlots.length > 0) {
+                // No late-shift members: fallback to regular members for these slots
+                // (will be filled in round-robin below)
+                regularSlots.push(...lateSlots);
+                regularSlots.sort((a, b) => TIME_SLOTS.indexOf(a) - TIME_SLOTS.indexOf(b));
+            }
+
+            // 2. Round-robin for regular slots: only regular members
+            //    (late-shift members are reserved for their slots)
+            const pool = regularMembers.length > 0 ? regularMembers : allAvailable;
+            const shuffledPool = shuffleArray(pool);
+            const slotsToFill = regularSlots.filter(s => !schedule[s]);
+
+            slotsToFill.forEach((slot, i) => {
+                const member = shuffledPool[i % shuffledPool.length];
+                schedule[slot] = [member];
+                shiftCounts[member] = (shiftCounts[member] || 0) + 1;
             });
 
             return schedule;
