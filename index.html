@@ -87,9 +87,21 @@
             gap: 0.35rem;
         }
 
-        .sync-pill.saved::before {
-            content: '✓';
+        .sync-pill.saved {
             color: var(--accent);
+            border-color: var(--accent);
+        }
+        .sync-pill.syncing {
+            color: #f59e0b;
+            border-color: #f59e0b;
+        }
+        .sync-pill.error {
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+        .sync-pill.offline {
+            color: var(--text-muted);
+            border-color: var(--border);
         }
 
         /* Tabs */
@@ -953,12 +965,12 @@
         <div class="header">
             <h1>Shift Scheduler</h1>
             <div class="header-controls">
-                <div class="sync-pill" id="syncPill">Saved</div>
+                <div class="sync-pill" id="syncPill">⟳ Loading...</div>
             </div>
         </div>
 
         <div style="padding:0.5rem 1.25rem;font-family:var(--font-mono);font-size:0.6rem;color:var(--text-muted);line-height:1.6;border-bottom:1px solid var(--border);">
-            全データはブラウザ内（localStorage）に保存。サーバー送信なし、バックエンドなし、Cookie なし。Auto-Send で送る WebEx メッセージ以外、外部通信は一切ありません。DevTools → Network で確認できます。<a href="https://github.com/ymatz28-beep/shift-scheduler" style="color:var(--accent);text-decoration:none;">ソースコード（GitHub）</a>
+            シフトデータはCloudflare KVにクラウド保存。全メンバーがリアルタイムで同じデータを共有します。WebExトークン等の認証情報はブラウザ内（localStorage）のみに保存。<a href="https://github.com/ymatz28-beep/shift-scheduler" style="color:var(--accent);text-decoration:none;">ソースコード（GitHub）</a>
         </div>
 
         <div class="tab-container">
@@ -1193,6 +1205,7 @@
         })();
 
         // ============ Config & Constants ============
+        const API_URL = 'https://shift-scheduler-api.iuma-api.workers.dev';
         const DEFAULT_TEAM_MEMBERS = ['Seiryu', 'Masato', 'Yukio', 'Masayuki', 'Kosuke', 'Yancy'];
         let teamMembers = [...DEFAULT_TEAM_MEMBERS];
         const TIME_SLOTS = [
@@ -1207,7 +1220,7 @@
         let LATE_SHIFT_SLOTS = [];
         let PEOPLE_PER_SLOT = 1;
         const STORAGE_PREFIX = 'ss_';
-        // Storage helpers
+        // Storage helpers (localStorage = offline cache only)
         function getStorageItem(key) {
             const raw = localStorage.getItem(`${STORAGE_PREFIX}${key}`);
             if (!raw) return null;
@@ -1216,7 +1229,6 @@
 
         function setStorageItem(key, value) {
             localStorage.setItem(`${STORAGE_PREFIX}${key}`, JSON.stringify(value));
-            showSyncStatus('saved');
         }
 
         // Language: English only
@@ -1227,30 +1239,73 @@
         let scheduleCache = {};
         let shiftCounts = {};
         let autoSendTimer = null;
+        let _savePending = null;
 
-        function initData() {
+        // Build the blob that goes to KV
+        function _buildCloudData() {
+            return {
+                team_members: teamMembers,
+                time_slots: TIME_SLOTS,
+                late_shift_slots: LATE_SHIFT_SLOTS,
+                people_per_slot: PEOPLE_PER_SLOT,
+                availability: availabilityData,
+                schedule: scheduleCache,
+                shift_counts: shiftCounts,
+            };
+        }
+
+        // Apply a cloud blob to local state
+        function _applyCloudData(data) {
+            teamMembers = data.team_members || [...DEFAULT_TEAM_MEMBERS];
+            LATE_SHIFT_SLOTS = data.late_shift_slots || [];
+            PEOPLE_PER_SLOT = data.people_per_slot || 1;
+            availabilityData = data.availability || {};
+            scheduleCache = data.schedule || {};
+            shiftCounts = data.shift_counts || {};
+        }
+
+        // Save to localStorage (offline cache)
+        function _saveLocal() {
+            setStorageItem('availability', availabilityData);
+            setStorageItem('schedule', scheduleCache);
+            setStorageItem('shiftCounts', shiftCounts);
+            setStorageItem('lateShiftSlots', LATE_SHIFT_SLOTS);
+            setStorageItem('peoplePerSlot', PEOPLE_PER_SLOT);
+            localStorage.setItem(`${STORAGE_PREFIX}teamMembers`, JSON.stringify(teamMembers));
+        }
+
+        // Load from localStorage (offline fallback)
+        function _loadLocal() {
             availabilityData = getStorageItem('availability') || {};
             scheduleCache = getStorageItem('schedule') || {};
             shiftCounts = getStorageItem('shiftCounts') || {};
-
-            // Load teamMembers from localStorage (unencrypted, non-sensitive)
             const storedTeam = localStorage.getItem(`${STORAGE_PREFIX}teamMembers`);
             if (storedTeam) {
                 try { teamMembers = JSON.parse(storedTeam); } catch { teamMembers = [...DEFAULT_TEAM_MEMBERS]; }
-            } else {
-                teamMembers = [...DEFAULT_TEAM_MEMBERS];
             }
-
-            // Load late shift slots config
             const storedLateSlots = getStorageItem('lateShiftSlots');
-            if (storedLateSlots) {
-                LATE_SHIFT_SLOTS = storedLateSlots;
-            }
-
-            // Load people per slot config
+            if (storedLateSlots) LATE_SHIFT_SLOTS = storedLateSlots;
             const storedPeople = getStorageItem('peoplePerSlot');
-            if (storedPeople) {
-                PEOPLE_PER_SLOT = storedPeople;
+            if (storedPeople) PEOPLE_PER_SLOT = storedPeople;
+        }
+
+        async function initData() {
+            // Try cloud first, fall back to localStorage
+            try {
+                showSyncStatus('syncing');
+                const resp = await fetch(`${API_URL}/data`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    _applyCloudData(data);
+                    _saveLocal(); // cache locally
+                    showSyncStatus('synced');
+                } else {
+                    throw new Error(`HTTP ${resp.status}`);
+                }
+            } catch (err) {
+                console.warn('Cloud load failed, using localStorage:', err);
+                _loadLocal();
+                showSyncStatus('offline');
             }
 
             // Ensure all team members exist in availability data
@@ -1265,10 +1320,27 @@
         }
 
         function saveData() {
-            setStorageItem('availability', availabilityData);
-            setStorageItem('schedule', scheduleCache);
-            setStorageItem('shiftCounts', shiftCounts);
-            localStorage.setItem(`${STORAGE_PREFIX}teamMembers`, JSON.stringify(teamMembers));
+            _saveLocal(); // instant local save
+
+            // Debounced cloud save (300ms)
+            clearTimeout(_savePending);
+            _savePending = setTimeout(async () => {
+                try {
+                    showSyncStatus('syncing');
+                    const resp = await fetch(`${API_URL}/data`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(_buildCloudData()),
+                    });
+                    if (resp.ok) {
+                        showSyncStatus('synced');
+                    } else {
+                        showSyncStatus('error');
+                    }
+                } catch {
+                    showSyncStatus('offline');
+                }
+            }, 300);
         }
 
         // ============ UI Helpers ============
@@ -1282,10 +1354,20 @@
 
         function showSyncStatus(status) {
             const pill = document.getElementById('syncPill');
-            if (status === 'saved') {
-                pill.textContent = '✓ Saved';
+            pill.classList.remove('saved', 'syncing', 'error', 'offline');
+            if (status === 'saved' || status === 'synced') {
+                pill.textContent = '✓ Synced';
                 pill.classList.add('saved');
                 setTimeout(() => pill.classList.remove('saved'), 2000);
+            } else if (status === 'syncing') {
+                pill.textContent = '⟳ Syncing...';
+                pill.classList.add('syncing');
+            } else if (status === 'error') {
+                pill.textContent = '✗ Sync error';
+                pill.classList.add('error');
+            } else if (status === 'offline') {
+                pill.textContent = '⊘ Offline';
+                pill.classList.add('offline');
             }
         }
 
@@ -1944,7 +2026,20 @@
         });
 
         // ============ Initialization ============
-        initData();
+        // initData is async; render after data loads
+        (async () => {
+            await initData();
+            renderAvailabilityGrid();
+            renderBulkMemberSelect();
+            renderTeamTags();
+            renderPeoplePerSlotChips();
+            renderLateShiftSlotToggles();
+            const today = new Date();
+            if (!scheduleCache[formatDate(today)]) {
+                regenerateSchedules();
+            }
+            renderScheduleTab();
+        })();
         loadWebexConfig();
 
         // Persist WebEx credentials on change
@@ -2005,17 +2100,6 @@
             });
         }
 
-        renderAvailabilityGrid();
-        renderBulkMemberSelect();
-        renderTeamTags();
-        renderPeoplePerSlotChips();
-        renderLateShiftSlotToggles();
-
-        // Ensure schedule exists on load
-        const today = new Date();
-        if (!scheduleCache[formatDate(today)]) {
-            regenerateSchedules();
-        }
     </script>
 </body>
 </html>

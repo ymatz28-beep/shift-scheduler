@@ -1,0 +1,10 @@
+name = "shift-scheduler-api"
+main = "src/index.js"
+compatibility_date = "2026-03-30"
+
+[[kv_namespaces]]
+binding = "SHIFT_DATA"
+id = "718cef89874e4d98805146c078df025f"
+
+[vars]
+ALLOWED_ORIGIN = "https://ymatz28-beep.github.io"
