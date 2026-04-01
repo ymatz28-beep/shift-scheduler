@@ -8,3 +8,9 @@ id = "718cef89874e4d98805146c078df025f"
 
 [vars]
 ALLOWED_ORIGIN = "https://ymatz28-beep.github.io"
+
+# Cron Triggers (UTC)
+# 23:30 UTC Sun-Thu = 08:30 JST Mon-Fri (morning)
+# 08:00 UTC Mon-Fri = 17:00 JST Mon-Fri (evening)
+[triggers]
+crons = ["30 23 * * SUN-THU", "0 8 * * MON-FRI"]
