@@ -1773,28 +1773,31 @@
             const dateStr = currentLang === 'ja' ? formatDateJP(date) : date.toLocaleDateString('en-US');
             let msg = `📞 Phone Shift Schedule — ${dateStr}\n━━━━━━━━━━━━━━━━━━━━━━━\n`;
 
-            TIME_SLOTS.forEach(slot => {
-                const people = schedule[slot] || [];
-                msg += `  ${slot}  →  ${people.join(' · ')}\n`;
-            });
-
-            msg += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
-
             const dStr = formatDate(date);
             const lateMembers = teamMembers.filter(m => {
                 const status = availabilityData[m][dStr] || 'available';
                 return status === 'late-shift';
             });
+
+            TIME_SLOTS.forEach(slot => {
+                const people = schedule[slot] || [];
+                const isLate = LATE_SHIFT_SLOTS.includes(slot);
+                const label = isLate ? people.map(p => `${p} (late shift)`).join(' · ') : people.join(' · ');
+                msg += `  ${slot}  →  ${label}\n`;
+            });
+
+            msg += `━━━━━━━━━━━━━━━━━━━━━━━\n`;
+
             const ptoMembers = teamMembers.filter(m => {
                 const status = availabilityData[m][dStr] || 'available';
                 return status === 'pto';
             });
 
             if (lateMembers.length > 0) {
-                msg += `🕐 Late shift: ${lateMembers.join(', ')}\n`;
+                msg += `⏰ Late shift: ${lateMembers.join(', ')}\n`;
             }
             if (ptoMembers.length > 0) {
-                msg += `🌴 PTO: ${ptoMembers.join(', ')}\n`;
+                msg += `🌴 Out on PTO: ${ptoMembers.join(', ')}\n`;
             }
 
             msg += `\nHave a great day! 🙌\n`;
