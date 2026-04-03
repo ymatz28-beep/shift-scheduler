@@ -42,7 +42,7 @@ const DEFAULT_DATA = {
 	team_members: ['Seiryu', 'Masato', 'Yukio', 'Masayuki', 'Kosuke', 'Yancy'],
 	time_slots: [
 		'09:00–10:00', '10:00–11:00', '11:00–12:00',
-		'12:00–13:00', '13:00–14:00', '14:00–15:00', '16:00–17:00',
+		'12:00–13:00', '13:00–14:00', '14:00–15:00', '15:00–16:00', '16:00–17:00',
 	],
 	late_shift_slots: [],
 	people_per_slot: 1,
@@ -143,17 +143,20 @@ function formatMessage(data, target, schedule, isEvening) {
 	lines.push(`📞 Phone Shift Schedule — ${dateDisplay}`);
 	lines.push('━━━━━━━━━━━━━━━━━━━━━━━');
 
+	const lateSlots = data.late_shift_slots || [];
 	for (const slot of (data.time_slots || [])) {
 		const people = schedule[slot] || [];
-		lines.push(`  ${slot}  →  ${people.join(' · ')}`);
+		const isLate = lateSlots.includes(slot);
+		const label = isLate ? people.map(p => `${p} (late shift)`).join(' · ') : people.join(' · ');
+		lines.push(`  ${slot}  →  ${label}`);
 	}
 
 	lines.push('━━━━━━━━━━━━━━━━━━━━━━━');
 
 	const late = members.filter(m => getStatus(data, m, dateStr) === 'late-shift');
 	const pto = members.filter(m => getStatus(data, m, dateStr) === 'pto');
-	if (late.length) lines.push(`🕐 Late shift: ${late.join(', ')}`);
-	if (pto.length) lines.push(`🌴 PTO: ${pto.join(', ')}`);
+	if (late.length) lines.push(`⏰ Late shift: ${late.join(', ')}`);
+	if (pto.length) lines.push(`🌴 Out on PTO: ${pto.join(', ')}`);
 
 	lines.push('\nHave a great day! 🙌');
 	lines.push(`📋 ${SCHEDULER_URL}`);
