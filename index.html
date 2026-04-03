@@ -1256,6 +1256,8 @@
         }
 
         // Apply a cloud blob to local state
+        // NOTE: time_slots SSoT is the frontend const TIME_SLOTS.
+        // If KV has stale/missing slots, we auto-heal on next save.
         function _applyCloudData(data) {
             teamMembers = data.team_members || [...DEFAULT_TEAM_MEMBERS];
             LATE_SHIFT_SLOTS = data.late_shift_slots || [];
@@ -1263,6 +1265,17 @@
             availabilityData = data.availability || {};
             scheduleCache = data.schedule || {};
             shiftCounts = data.shift_counts || {};
+            // Auto-heal: if KV time_slots diverges from frontend SSoT, push correct data
+            const kvSlots = data.time_slots || [];
+            if (JSON.stringify(kvSlots) !== JSON.stringify(TIME_SLOTS)) {
+                console.warn('time_slots drift detected — auto-healing KV');
+                // Direct PUT to avoid circular save→load loops
+                fetch(`${API_URL}/data`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(_buildCloudData()),
+                }).then(() => console.log('KV auto-healed')).catch(() => {});
+            }
         }
 
         // Save to localStorage (offline cache)
