@@ -38,18 +38,9 @@ function jsonResp(data, status, cors = {}) {
 	});
 }
 
-const DEFAULT_DATA = {
-	team_members: ['Seiryu', 'Masato', 'Yukio', 'Masayuki', 'Kosuke', 'Yancy'],
-	time_slots: [
-		'09:00–10:00', '10:00–11:00', '11:00–12:00',
-		'12:00–13:00', '13:00–14:00', '14:00–15:00', '15:00–16:00', '16:00–17:00',
-	],
-	late_shift_slots: [],
-	people_per_slot: 1,
-	availability: {},
-	schedule: {},
-	shift_counts: {},
-};
+// No DEFAULT_DATA — KV is the single source of truth.
+// If KV is empty, the frontend must save data first (via PUT /data).
+// This eliminates the risk of hardcoded values drifting from the frontend.
 
 // ============ Schedule Generation (same round-robin as frontend) ============
 
@@ -187,7 +178,10 @@ async function sendWebex(message, env) {
 
 async function handleNotify(env, mode) {
 	const raw = await env.SHIFT_DATA.get('shift_data');
-	const data = raw ? JSON.parse(raw) : DEFAULT_DATA;
+	if (!raw) {
+		return { skipped: true, reason: 'KV empty — open the scheduler UI to initialize data' };
+	}
+	const data = JSON.parse(raw);
 
 	// JST = UTC+9
 	const now = new Date();
@@ -233,8 +227,12 @@ export default {
 		if (path === '/data') {
 			if (request.method === 'GET') {
 				const raw = await env.SHIFT_DATA.get('shift_data');
-				const data = raw ? JSON.parse(raw) : DEFAULT_DATA;
-				return jsonResp(data, 200, cors);
+				if (!raw) {
+					// KV empty — return 404 so frontend falls back to localStorage
+					// Frontend will PUT /data on first save, initializing KV
+					return jsonResp({ error: 'No data yet' }, 404, cors);
+				}
+				return jsonResp(JSON.parse(raw), 200, cors);
 			}
 
 			if (request.method === 'PUT') {
