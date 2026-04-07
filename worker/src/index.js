@@ -44,10 +44,29 @@ function jsonResp(data, status, cors = {}) {
 
 // ============ Schedule Generation (same round-robin as frontend) ============
 
-function shuffleArray(arr) {
+// Seeded PRNG (mulberry32) — same seed always produces the same sequence
+function seededRandom(seed) {
+	let h = seed;
+	return function () {
+		h |= 0; h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+		h |= 0; h = Math.imul(h ^ (h >>> 13), 0x45d9f3b);
+		h |= 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+	};
+}
+
+function hashString(str) {
+	let hash = 0;
+	for (let i = 0; i < str.length; i++) {
+		hash = ((hash << 5) - hash) + str.charCodeAt(i);
+		hash |= 0;
+	}
+	return hash;
+}
+
+function shuffleArray(arr, rng) {
 	const a = [...arr];
 	for (let i = a.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
+		const j = Math.floor(rng() * (i + 1));
 		[a[i], a[j]] = [a[j], a[i]];
 	}
 	return a;
@@ -61,6 +80,9 @@ function generateSchedule(data, dateStr) {
 	const members = data.team_members || [];
 	const timeSlots = data.time_slots || [];
 	const lateSlots = data.late_shift_slots || [];
+
+	// Deterministic RNG seeded by date — same date always produces the same schedule
+	const rng = seededRandom(hashString(dateStr));
 
 	const lateShiftMembers = [];
 	const regularMembers = [];
@@ -83,7 +105,7 @@ function generateSchedule(data, dateStr) {
 	// Late-shift slots: only late-shift members
 	const lateSlotList = timeSlots.filter(s => lateSlots.includes(s));
 	if (lateSlotList.length > 0 && lateShiftMembers.length > 0) {
-		const shuffledLate = shuffleArray(lateShiftMembers);
+		const shuffledLate = shuffleArray(lateShiftMembers, rng);
 		for (let i = 0; i < lateSlotList.length; i++) {
 			schedule[lateSlotList[i]] = [shuffledLate[i % shuffledLate.length]];
 		}
@@ -91,7 +113,7 @@ function generateSchedule(data, dateStr) {
 
 	// Round-robin for remaining slots
 	const pool = regularMembers.length > 0 ? regularMembers : allAvailable;
-	const shuffledPool = shuffleArray(pool);
+	const shuffledPool = shuffleArray(pool, rng);
 	const slotsToFill = timeSlots.filter(s => !schedule[s]);
 	for (let i = 0; i < slotsToFill.length; i++) {
 		schedule[slotsToFill[i]] = [shuffledPool[i % shuffledPool.length]];

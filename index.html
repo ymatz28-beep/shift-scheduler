@@ -1239,6 +1239,7 @@
         let availabilityData = {};
         let scheduleCache = {};
         let shiftCounts = {};
+        let regenerateCounter = 0;
         let autoSendTimer = null;
         let _savePending = null;
 
@@ -1608,10 +1609,29 @@
 
         // ============ Schedule Generation ============
         // Fisher-Yates shuffle (unbiased)
-        function shuffleArray(arr) {
+        // Seeded PRNG (mulberry32) — same seed always produces the same sequence
+        function seededRandom(seed) {
+            let h = seed;
+            return function () {
+                h |= 0; h = Math.imul(h ^ (h >>> 16), 0x45d9f3b);
+                h |= 0; h = Math.imul(h ^ (h >>> 13), 0x45d9f3b);
+                h |= 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+            };
+        }
+
+        function hashString(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                hash |= 0;
+            }
+            return hash;
+        }
+
+        function shuffleArray(arr, rng) {
             const a = [...arr];
             for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
+                const j = Math.floor(rng() * (i + 1));
                 [a[i], a[j]] = [a[j], a[i]];
             }
             return a;
@@ -1619,6 +1639,10 @@
 
         function generateSchedule(targetDate) {
             const dateStr = formatDate(targetDate);
+
+            // Deterministic RNG seeded by date + counter — same seed = same schedule
+            // regenerateCounter increments on manual regenerate to produce a new shuffle
+            const rng = seededRandom(hashString(dateStr + ':' + regenerateCounter));
 
             // Categorize members by status
             const lateShiftMembers = [];
@@ -1647,7 +1671,7 @@
 
             // 1. Assign late-shift slots: ONLY late-shift members
             if (lateSlots.length > 0 && lateShiftMembers.length > 0) {
-                const shuffledLate = shuffleArray(lateShiftMembers);
+                const shuffledLate = shuffleArray(lateShiftMembers, rng);
                 lateSlots.forEach((slot, i) => {
                     const member = shuffledLate[i % shuffledLate.length];
                     schedule[slot] = [member];
@@ -1663,7 +1687,7 @@
             // 2. Round-robin for regular slots: only regular members
             //    (late-shift members are reserved for their slots)
             const pool = regularMembers.length > 0 ? regularMembers : allAvailable;
-            const shuffledPool = shuffleArray(pool);
+            const shuffledPool = shuffleArray(pool, rng);
             const slotsToFill = regularSlots.filter(s => !schedule[s]);
 
             slotsToFill.forEach((slot, i) => {
@@ -1676,6 +1700,7 @@
         }
 
         function regenerateSchedules() {
+            regenerateCounter++;
             const today = new Date();
             scheduleCache[formatDate(today)] = generateSchedule(today);
 
